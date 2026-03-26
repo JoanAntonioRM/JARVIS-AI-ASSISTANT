@@ -1,6 +1,6 @@
 ; Inno Setup Script for JARVIS
 #define MyAppName "JARVIS"
-#define MyAppVersion "0.1.4"
+#define MyAppVersion "0.1.5"
 #define MyAppPublisher "JARVIS"
 #define MyAppExeName "jarvis.exe"
 
@@ -11,7 +11,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={localappdata}\JarvisAI
 DefaultGroupName={#MyAppName}
 OutputBaseFilename=jarvisinstall
-SetupIconFile=icon_jarvis.png
+SetupIconFile=icon_jarvis.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -25,6 +25,7 @@ Name: "startup"; Description: "Start {#MyAppName} with Windows"; GroupDescriptio
 Source: "dist\jarvis.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "face.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "icon_jarvis.png"; DestDir: "{app}"; Flags: ignoreversion
+Source: "icon_jarvis.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

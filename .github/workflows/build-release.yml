@@ -24,7 +24,7 @@ jobs:
 
       - name: Build jarvis.exe
         run: |
-          pyinstaller --noconfirm --onefile --windowed --name jarvis --icon icon_jarvis.png --add-data "face.png;." --add-data "icon_jarvis.png;." main.py
+          pyinstaller --noconfirm --onefile --windowed --name jarvis --icon icon_jarvis.ico --add-data "face.png;." --add-data "icon_jarvis.png;." main.py
 
       - name: Install Inno Setup
         run: |
