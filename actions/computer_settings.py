@@ -180,6 +180,15 @@ def focus_search():
     else:               pyautogui.hotkey("ctrl", "l")
 
 def pause_video():      pyautogui.press("space")
+
+def media_play_pause():
+    pyautogui.press("playpause")
+
+def media_next():
+    pyautogui.press("nexttrack")
+
+def media_prev():
+    pyautogui.press("prevtrack")
 def refresh_page():
     if _OS == "Darwin": pyautogui.hotkey("command", "r")
     else:               pyautogui.press("f5")
@@ -405,6 +414,17 @@ ACTION_MAP = {
     "toggle_play":             pause_video,
     "stop_video":              pause_video,
     "resume_video":            pause_video,
+    "media_play_pause":        media_play_pause,
+    "media_pause":             media_play_pause,
+    "media_play":              media_play_pause,
+    "pause_music":             media_play_pause,
+    "play_music":              media_play_pause,
+    "media_next":              media_next,
+    "next_track":              media_next,
+    "skip_song":               media_next,
+    "media_prev":              media_prev,
+    "previous_track":          media_prev,
+    "prev_song":               media_prev,
     "close_app":               close_app,
     "close_window":            close_window,
     "quit_app":                close_app,

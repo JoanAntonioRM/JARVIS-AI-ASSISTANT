@@ -16,12 +16,27 @@ def weather_action(
 
     city = parameters.get("city")
     time = parameters.get("time")
-    if not city or not isinstance(city, str):
-        msg = "Sir, the city is missing for the weather report."
-        _speak_and_log(msg, player)
-        return msg
 
-    city = city.strip()
+    def _load_default_city() -> str:
+        try:
+            from pathlib import Path
+            import json
+            base_dir = Path(__file__).resolve().parent.parent
+            cfg_path = base_dir / "config" / "api_keys.json"
+            if cfg_path.exists():
+                data = json.loads(cfg_path.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and data.get("default_city"):
+                    return str(data.get("default_city")).strip()
+        except Exception:
+            pass
+        return "Laval"
+
+    if not city or not isinstance(city, str):
+        city = _load_default_city()
+    else:
+        city = city.strip()
+        if city.lower() in ("my city", "here", "local", "current location"):
+            city = _load_default_city()
 
     if not time or not isinstance(time, str):
         time = "today"

@@ -31,6 +31,8 @@ from actions.code_helper      import code_helper
 from actions.dev_agent        import dev_agent
 from actions.web_search       import web_search as web_search_action
 from actions.computer_control import computer_control
+from actions.time_date        import time_date
+from actions.take_note        import take_note
 
 def get_base_dir():
     if getattr(sys, "frozen", False):
@@ -46,6 +48,10 @@ CHANNELS            = 1
 SEND_SAMPLE_RATE    = 16000
 RECEIVE_SAMPLE_RATE = 24000
 CHUNK_SIZE          = 1024
+
+# Wake word settings
+WAKE_ENABLED = True
+WAKE_WORD    = "jarvis"
 
 pya = pyaudio.PyAudio()
 
@@ -179,6 +185,22 @@ TOOL_DECLARATIONS = [
                 "city": {"type": "STRING", "description": "City name"}
             },
             "required": ["city"]
+        }
+    },
+    {
+        "name": "time_date",
+        "description": "Returns the current local date and time.",
+        "parameters": {"type": "OBJECT", "properties": {}}
+    },
+    {
+        "name": "take_note",
+        "description": "Appends an important note to a text file on Desktop.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "text": {"type": "STRING", "description": "The note text"}
+            },
+            "required": ["text"]
         }
     },
     {
@@ -481,6 +503,17 @@ class JarvisLive:
         self.audio_in_queue = None
         self.out_queue      = None
         self._loop          = None
+        self.wake_enabled   = WAKE_ENABLED
+        self.wake_word      = WAKE_WORD
+        self._wake_detected = False
+        self._wake_until    = 0.0
+
+    def _is_wake_active(self) -> bool:
+        if not self.wake_enabled:
+            return True
+        if self._wake_detected:
+            return True
+        return time.time() < self._wake_until
 
     def speak(self, text: str):
         """Thread-safe speak — any thread can call this."""
@@ -501,6 +534,12 @@ class JarvisLive:
         mem_str = format_memory_for_prompt(memory)
 
         sys_prompt = _load_system_prompt()
+        if self.wake_enabled and self.wake_word:
+            sys_prompt = (
+                f"[WAKE WORD]\n"
+                f"Only respond if the user says the wake word '{self.wake_word}'. "
+                f"If the wake word is not spoken, do not respond.\n\n" + sys_prompt
+            )
 
         now      = datetime.now()
         time_str = now.strftime("%A, %B %d, %Y — %I:%M %p")
@@ -668,6 +707,18 @@ class JarvisLive:
                 )
                 result = r or "Done."
 
+            elif name == "time_date":
+                r = await loop.run_in_executor(
+                    None, lambda: time_date(parameters=args, player=self.ui)
+                )
+                result = r or "Done."
+
+            elif name == "take_note":
+                r = await loop.run_in_executor(
+                    None, lambda: take_note(parameters=args, player=self.ui)
+                )
+                result = r or "Done."
+
             elif name == "flight_finder":
                 r = await loop.run_in_executor(
                     None, lambda: flight_finder(parameters=args, player=self.ui)
@@ -727,7 +778,8 @@ class JarvisLive:
                 async for response in turn:
 
                     if response.data:
-                        self.audio_in_queue.put_nowait(response.data)
+                        if self._is_wake_active():
+                            self.audio_in_queue.put_nowait(response.data)
 
                     if response.server_content:
                         sc = response.server_content
@@ -736,10 +788,14 @@ class JarvisLive:
                             txt = sc.input_transcription.text.strip()
                             if txt:
                                 in_buf.append(txt)
+                                if self.wake_enabled and self.wake_word:
+                                    if self.wake_word.lower() in txt.lower():
+                                        self._wake_detected = True
+                                        self._wake_until = time.time() + 8
 
                         if sc.output_transcription and sc.output_transcription.text:
                             txt = sc.output_transcription.text.strip()
-                            if txt:
+                            if txt and self._is_wake_active():
                                 out_buf.append(txt)
 
                         if sc.turn_complete:
@@ -765,11 +821,22 @@ class JarvisLive:
                                     daemon=True
                                 ).start()
 
+                            # Reset wake flag for next turn
+                            if self.wake_enabled:
+                                self._wake_detected = False
+
                     if response.tool_call:
                         fn_responses = []
                         for fc in response.tool_call.function_calls:
                             print(f"[JARVIS] 📞 Tool call: {fc.name}")
-                            fr = await self._execute_tool(fc)
+                            if not self._is_wake_active():
+                                fr = types.FunctionResponse(
+                                    id=fc.id,
+                                    name=fc.name,
+                                    response={"result": "Ignored: wake word not detected."}
+                                )
+                            else:
+                                fr = await self._execute_tool(fc)
                             fn_responses.append(fr)
                         await self.session.send_tool_response(
                             function_responses=fn_responses
@@ -834,8 +901,47 @@ class JarvisLive:
             print("[JARVIS] 🔄 Reconnecting in 3s...")
             await asyncio.sleep(3)
 
+def _check_for_updates(ui: JarvisUI):
+    try:
+        import subprocess
+        from tkinter import messagebox
+
+        if not (BASE_DIR / ".git").exists():
+            return
+
+        # Fetch remote updates
+        subprocess.run(["git", "-C", str(BASE_DIR), "fetch"], check=False)
+        head = subprocess.run(
+            ["git", "-C", str(BASE_DIR), "rev-parse", "HEAD"],
+            capture_output=True, text=True
+        ).stdout.strip()
+        upstream = subprocess.run(
+            ["git", "-C", str(BASE_DIR), "rev-parse", "@{u}"],
+            capture_output=True, text=True
+        ).stdout.strip()
+
+        if head and upstream and head != upstream:
+            do_update = messagebox.askyesno(
+                "MARK XXX Update Available",
+                "An update is available. Do you want to update now?"
+            )
+            if do_update:
+                subprocess.run(["git", "-C", str(BASE_DIR), "pull"], check=False)
+                messagebox.showinfo(
+                    "Update Complete",
+                    "Update complete. Please restart the assistant."
+                )
+                try:
+                    ui.root.destroy()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
 def main():
     ui = JarvisUI("face.png")
+    _check_for_updates(ui)
 
     def runner():
         ui.wait_for_api_key()

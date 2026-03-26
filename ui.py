@@ -372,8 +372,18 @@ class JarvisUI:
         if not gemini:
             return
         os.makedirs(CONFIG_DIR, exist_ok=True)
+        data = {}
+        if API_FILE.exists():
+            try:
+                data = json.loads(API_FILE.read_text(encoding="utf-8"))
+            except Exception:
+                data = {}
+        data["gemini_api_key"] = gemini
+        # Default city used when user says "my city"
+        if not data.get("default_city"):
+            data["default_city"] = "Laval"
         with open(API_FILE, "w", encoding="utf-8") as f:
-            json.dump({"gemini_api_key": gemini}, f, indent=4)
+            json.dump(data, f, indent=4)
         self.setup_frame.destroy()
         self._api_key_ready = True
         self.status_text = "ONLINE"
