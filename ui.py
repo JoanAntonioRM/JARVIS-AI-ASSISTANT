@@ -123,6 +123,20 @@ class JarvisUI:
             img.putalpha(mask)
             self._face_pil = img
             self._has_face = True
+            return
+        except Exception:
+            self._has_face = False
+
+        # Fallback to icon_jarvis.png if face not found
+        try:
+            icon_path = BASE_DIR / "icon_jarvis.png"
+            if icon_path.exists():
+                img  = Image.open(icon_path).convert("RGBA").resize((FW, FW), Image.LANCZOS)
+                mask = Image.new("L", (FW, FW), 0)
+                ImageDraw.Draw(mask).ellipse((2, 2, FW - 2, FW - 2), fill=255)
+                img.putalpha(mask)
+                self._face_pil = img
+                self._has_face = True
         except Exception:
             self._has_face = False
 
