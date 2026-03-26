@@ -935,6 +935,11 @@ def _check_for_updates(ui: JarvisUI):
 
 def main():
     settings = load_settings()
+
+    # CLI override for minimized start
+    if "--minimized" in sys.argv:
+        settings["start_minimized"] = True
+
     ui = JarvisUI("face.png")
     _check_for_updates(ui)
 
@@ -946,7 +951,9 @@ def main():
             exe_path = sys.executable
         except Exception:
             exe_path = ""
-        set_startup(enabled, "JARVIS", exe_path)
+        if enabled:
+            settings["start_minimized"] = True
+        set_startup(enabled, "JARVIS", exe_path, "--minimized")
         save_settings(settings)
 
     tray_icon = start_tray(ui, settings, on_toggle_startup=_on_toggle_startup)

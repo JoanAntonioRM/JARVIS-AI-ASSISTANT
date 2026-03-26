@@ -31,12 +31,25 @@ def weather_action(
             pass
         return "Laval"
 
+    def _detect_city_ip() -> str | None:
+        try:
+            import requests
+            r = requests.get("https://ipapi.co/json/", timeout=4)
+            if r.ok:
+                data = r.json()
+                city_val = data.get("city")
+                if city_val:
+                    return str(city_val).strip()
+        except Exception:
+            pass
+        return None
+
     if not city or not isinstance(city, str):
-        city = _load_default_city()
+        city = _detect_city_ip() or _load_default_city()
     else:
         city = city.strip()
         if city.lower() in ("my city", "here", "local", "current location"):
-            city = _load_default_city()
+            city = _detect_city_ip() or _load_default_city()
 
     if not time or not isinstance(time, str):
         time = "today"
