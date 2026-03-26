@@ -12,7 +12,10 @@ def start_tray(ui, settings, on_toggle_startup=None):
     except Exception:
         return None
 
-    icon_path = Path(__file__).resolve().parent / "face.png"
+    base = Path(__file__).resolve().parent
+    icon_path = base / "icon_jarvis.png"
+    if not icon_path.exists():
+        icon_path = base / "face.png"
     try:
         image = Image.open(icon_path) if icon_path.exists() else Image.new("RGB", (64, 64), "black")
     except Exception:
