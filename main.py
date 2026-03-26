@@ -11,6 +11,10 @@ from google import genai
 from google.genai import types
 import time 
 from ui import JarvisUI
+from settings import load_settings, save_settings
+from startup_manager import set_startup
+from tray import start_tray
+from updater import check_update_available
 from memory.memory_manager import load_memory, update_memory, format_memory_for_prompt
 
 from agent.task_queue import get_queue
@@ -903,45 +907,57 @@ class JarvisLive:
 
 def _check_for_updates(ui: JarvisUI):
     try:
-        import subprocess
         from tkinter import messagebox
-
-        if not (BASE_DIR / ".git").exists():
+        info = check_update_available()
+        if not info:
             return
-
-        # Fetch remote updates
-        subprocess.run(["git", "-C", str(BASE_DIR), "fetch"], check=False)
-        head = subprocess.run(
-            ["git", "-C", str(BASE_DIR), "rev-parse", "HEAD"],
-            capture_output=True, text=True
-        ).stdout.strip()
-        upstream = subprocess.run(
-            ["git", "-C", str(BASE_DIR), "rev-parse", "@{u}"],
-            capture_output=True, text=True
-        ).stdout.strip()
-
-        if head and upstream and head != upstream:
-            do_update = messagebox.askyesno(
-                "MARK XXX Update Available",
-                "An update is available. Do you want to update now?"
-            )
-            if do_update:
-                subprocess.run(["git", "-C", str(BASE_DIR), "pull"], check=False)
-                messagebox.showinfo(
-                    "Update Complete",
-                    "Update complete. Please restart the assistant."
-                )
+        latest = info.get("latest")
+        do_update = messagebox.askyesno(
+            "JARVIS Update Available",
+            f"Update {latest} is available. Install now?"
+        )
+        if do_update:
+            from updater import download_installer
+            installer = download_installer(info)
+            if installer:
+                import subprocess
+                subprocess.Popen([str(installer)])
                 try:
                     ui.root.destroy()
                 except Exception:
                     pass
+            else:
+                import webbrowser
+                webbrowser.open(info.get("html_url"))
     except Exception:
         pass
 
 
 def main():
+    settings = load_settings()
     ui = JarvisUI("face.png")
     _check_for_updates(ui)
+
+    # Start tray (Windows only)
+    def _on_toggle_startup(enabled: bool):
+        # best-effort: set registry Run key for jarvis.exe
+        try:
+            import sys
+            exe_path = sys.executable
+        except Exception:
+            exe_path = ""
+        set_startup(enabled, "JARVIS", exe_path)
+        save_settings(settings)
+
+    tray_icon = start_tray(ui, settings, on_toggle_startup=_on_toggle_startup)
+
+    if tray_icon is None:
+        # No tray available; allow normal window close
+        ui.root.protocol("WM_DELETE_WINDOW", ui.root.destroy)
+
+    # Start minimized if configured
+    if settings.get("start_minimized"):
+        ui.hide()
 
     def runner():
         ui.wait_for_api_key()

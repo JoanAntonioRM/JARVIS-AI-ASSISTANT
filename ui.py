@@ -98,7 +98,21 @@ class JarvisUI:
             self._show_setup_ui()
 
         self._animate()
-        self.root.protocol("WM_DELETE_WINDOW", lambda: os._exit(0))
+        self.root.protocol("WM_DELETE_WINDOW", self.hide)
+
+    def hide(self):
+        try:
+            self.root.withdraw()
+        except Exception:
+            pass
+
+    def show(self):
+        try:
+            self.root.deiconify()
+            self.root.lift()
+            self.root.focus_force()
+        except Exception:
+            pass
 
     def _load_face(self, path):
         FW = self.FACE_SZ
