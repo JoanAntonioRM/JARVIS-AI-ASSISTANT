@@ -1,6 +1,6 @@
 ; Inno Setup Script for JARVIS
 #define MyAppName "JARVIS"
-#define MyAppVersion "0.1.5"
+#define MyAppVersion "0.1.6"
 #define MyAppPublisher "JARVIS"
 #define MyAppExeName "jarvis.exe"
 
